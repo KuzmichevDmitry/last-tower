@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#12303d"/>
+      <stop offset="0.55" stop-color="#07131c"/>
+      <stop offset="1" stop-color="#02060a"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="50%" cy="48%" r="50%">
+      <stop offset="0" stop-color="#75f4ff" stop-opacity=".45"/>
+      <stop offset="0.55" stop-color="#2ac7dd" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#2ac7dd" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#396879"/>
+      <stop offset="0.42" stop-color="#102631"/>
+      <stop offset="0.7" stop-color="#244b59"/>
+      <stop offset="1" stop-color="#08141b"/>
+    </linearGradient>
+    <linearGradient id="crystal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="0.32" stop-color="#ccfdff"/>
+      <stop offset="0.72" stop-color="#5eeafb"/>
+      <stop offset="1" stop-color="#1288a3"/>
+    </linearGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <circle cx="256" cy="250" r="205" fill="url(#halo)"/>
+
+  <g fill="none" stroke="#8ef7ff" stroke-opacity=".24" stroke-width="2">
+    <circle cx="256" cy="250" r="184" stroke-dasharray="4 12"/>
+    <circle cx="256" cy="250" r="158" stroke-dasharray="42 74 10 30"/>
+  </g>
+  <circle cx="256" cy="250" r="198" fill="none" stroke="#ffd88f" stroke-opacity=".16" stroke-width="2"/>
+
+  <g fill="#7ff2ff" opacity=".54">
+    <circle cx="256" cy="40" r="4"/>
+    <circle cx="462" cy="250" r="4"/>
+    <circle cx="256" cy="460" r="4"/>
+    <circle cx="50" cy="250" r="4"/>
+  </g>
+
+  <ellipse cx="256" cy="405" rx="122" ry="28" fill="#010507" opacity=".7"/>
+
+  <g filter="url(#glow)">
+    <path d="M177 391 202 246l26-25 11-112 17-33 17 33 11 112 26 25 25 145Z" fill="url(#metal)" stroke="#56aec0" stroke-width="3"/>
+    <path d="m202 246 54-23 54 23" fill="none" stroke="#9cf8ff" stroke-opacity=".28" stroke-width="3"/>
+    <path d="M214 298h84M208 348h96" fill="none" stroke="#8ef7ff" stroke-opacity=".18" stroke-width="3"/>
+    <path d="M228 391h56l-7-86h-42Z" fill="#040b10"/>
+    <path d="M256 82 289 184 256 222 223 184Z" fill="url(#crystal)" stroke="#ecfeff" stroke-width="3"/>
+    <path d="M256 86v131M224 184l32-28 32 28" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="2"/>
+  </g>
+
+  <path d="M146 388h220l18 30H128Z" fill="#07141b" stroke="#3b8595" stroke-width="3"/>
+  <g fill="#ffd88f" filter="url(#glow)">
+    <circle cx="164" cy="368" r="6"/>
+    <circle cx="348" cy="368" r="6"/>
+  </g>
+
+  <g stroke="#8df7ff" stroke-opacity=".75" stroke-width="3" stroke-linecap="round">
+    <path d="M256 22v29M240 37h32"/>
+    <path d="M89 122l20 20M79 142h25"/>
+    <path d="M423 122l-20 20M448 142h-25"/>
+  </g>
+</svg>

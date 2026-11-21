@@ -1,0 +1,968 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1">
+  <meta name="theme-color" content="#060a11">
+  <meta name="description" content="Last Tower — мобильная игра обороны последней башни. Выбери один из трёх режимов, расставь защитников, улучшай башню за монеты и удержи рубеж.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Last Tower">
+  <title>Last Tower — Последняя башня</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/icon-180.png">
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <main id="app" aria-label="Last Tower — игра">
+    <canvas id="stage" aria-label="Поле боя"></canvas>
+
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <header class="hud" id="hud">
+      <div class="hud-top">
+        <div class="brand" aria-label="Last Tower">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-text">LAST<span>TOWER</span></span>
+        </div>
+
+        <div class="hud-actions">
+          <div class="currency" id="currencyPill" title="Эссенция">
+            <span class="essence-gem" aria-hidden="true">
+              <svg viewBox="0 0 16 16"><path d="M8 1.2 13 6l-5 8.8L3 6z"/><path d="M3 6h10M8 1.2V14.8" class="cut"/></svg>
+            </span>
+            <strong id="essenceValue">90</strong>
+          </div>
+          <button class="icon-btn icon-btn--inventory" id="inventoryBtn" type="button" aria-label="Открыть инвентарь" title="Инвентарь" aria-haspopup="dialog" aria-controls="inventory" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 8.5h14l1.2 11.5H3.8Z"/><path d="M9 8.5V6a3 3 0 0 1 6 0v2.5"/><path d="M9 13h6M9 16.5h4"/>
+            </svg>
+          </button>
+          <button class="icon-btn" id="soundBtn" type="button" aria-label="Выключить звук" title="Звук">
+            <svg class="ico-on" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9.5v5h4l5 4v-13l-5 4H4z"/><path d="M16.2 9a4.2 4.2 0 0 1 0 6M18.7 6.5a7.8 7.8 0 0 1 0 11" class="soft"/>
+            </svg>
+            <svg class="ico-off" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9.5v5h4l5 4v-13l-5 4H4z"/><path d="m16 9 5 6m0-6-5 6"/>
+            </svg>
+          </button>
+          <button class="icon-btn" id="pauseBtn" type="button" aria-label="Пауза" title="Пауза">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="hud-status">
+        <div class="wave-chip">
+          <span>ВОЛНА</span>
+          <strong id="waveValue">01/12</strong>
+        </div>
+
+        <div class="core-meter" id="coreMeter">
+          <div class="core-top">
+            <span class="core-label"><i aria-hidden="true"></i> ЯДРО</span>
+            <span class="core-value" id="hpValue">100 / 100</span>
+          </div>
+          <div class="core-track" role="progressbar" aria-label="Прочность ядра" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" id="hpTrack">
+            <span class="core-fill" id="hpFill"></span>
+            <span class="core-gloss" aria-hidden="true"></span>
+          </div>
+        </div>
+
+        <div class="kill-chip" title="Уничтожено врагов">
+          <strong id="killValue">0</strong>
+          <span>ВРАГОВ</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="phase-bar" id="phaseBar" hidden>
+      <span class="phase-pulse" aria-hidden="true"></span>
+      <span class="phase-text" id="phaseText">Подготовка · 8с</span>
+      <button class="phase-btn" id="startWaveBtn" type="button">В БОЙ <span id="phaseBonus">+4</span></button>
+    </div>
+
+    <div class="boss-bar" id="bossBar" hidden>
+      <div class="boss-head">
+        <span><i aria-hidden="true"></i> <span id="bossName">РАЗРУШИТЕЛЬ</span></span>
+        <span id="bossHpText">0%</span>
+      </div>
+      <div class="boss-track"><span id="bossFill"></span></div>
+      <span class="boss-cast" id="bossCast" hidden></span>
+    </div>
+
+    <div class="zoom-widget" id="zoomWidget" aria-label="Масштаб поля боя" hidden>
+      <button class="zoom-btn" id="zoomInBtn" type="button" aria-label="Приблизить поле" title="Приблизить">+</button>
+      <button class="zoom-btn zoom-btn--reset" id="zoomResetBtn" type="button" aria-label="Сбросить масштаб" title="Сбросить масштаб">
+        <span id="zoomLabel">1.0×</span>
+      </button>
+      <button class="zoom-btn" id="zoomOutBtn" type="button" aria-label="Отдалить поле" title="Отдалить">−</button>
+    </div>
+
+    <div class="wave-banner" id="waveBanner" aria-live="polite">
+      <div class="banner-kicker" id="bannerKicker">ПРИБЛИЖАЕТСЯ</div>
+      <div class="banner-title" id="bannerTitle">ВОЛНА 1</div>
+      <div class="banner-sub" id="bannerSub">Держи строй</div>
+    </div>
+
+    <div class="toast" id="toast" role="status">
+      <span class="toast-icon" id="toastIcon">✦</span>
+      <span class="toast-text" id="toastText"></span>
+    </div>
+
+    <section class="controls" id="controls" aria-label="Управление">
+      <div class="inspector" id="inspector" aria-hidden="true">
+        <button class="inspector-close" id="inspectorClose" type="button" aria-label="Закрыть">×</button>
+        <div class="inspector-head">
+          <span class="inspector-icon" id="inspectorIcon" aria-hidden="true"></span>
+          <div class="inspector-title-wrap">
+            <strong class="inspector-name" id="inspectorName">Стрелок</strong>
+            <span class="inspector-meta" id="inspectorMeta">УР. 1 · урон 13</span>
+          </div>
+        </div>
+        <div class="inspector-actions">
+          <button class="inspect-btn inspect-btn--up" id="upgradeBtn" type="button">
+            <span>Улучшить</span><small id="upgradeCost">✦ 28</small>
+          </button>
+          <button class="inspect-btn inspect-btn--sell" id="sellBtn" type="button">
+            <span>Продать</span><small id="sellValue">+21</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="abilities" role="group" aria-label="Способности башни">
+        <button class="ability ability--nova" id="abilityNova" data-ability="nova" type="button" aria-label="Импульс: урон по площади вокруг башни">
+          <span class="ability-orb">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2.5 14 9l5.5 3-5.5 3-2 6.5-2-6.5L4.5 12 10 9z"/>
+              <circle cx="12" cy="12" r="2.2" class="solid"/>
+            </svg>
+            <span class="ability-cd" aria-hidden="true"></span>
+            <span class="ability-time" aria-hidden="true"></span>
+          </span>
+          <span class="ability-name">Импульс</span>
+          <span class="hotkey" aria-hidden="true">Q</span>
+        </button>
+
+        <button class="ability ability--frost" id="abilityFrost" data-ability="frost" type="button" aria-label="Оковы льда: заморозить всех врагов">
+          <span class="ability-orb">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M8.5 4.5 12 7l3.5-2.5M8.5 19.5 12 17l3.5 2.5"/>
+            </svg>
+            <span class="ability-cd" aria-hidden="true"></span>
+            <span class="ability-time" aria-hidden="true"></span>
+          </span>
+          <span class="ability-name">Оковы</span>
+          <span class="hotkey" aria-hidden="true">W</span>
+        </button>
+
+        <button class="ability ability--repair" id="abilityRepair" data-ability="repair" type="button" aria-label="Починка: восстановить прочность ядра">
+          <span class="ability-orb">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>
+              <path d="M12 8.2v6.2M9 11.3h6" class="solid-line"/>
+            </svg>
+            <span class="ability-cd" aria-hidden="true"></span>
+            <span class="ability-time" aria-hidden="true"></span>
+          </span>
+          <span class="ability-name">Починка</span>
+          <span class="hotkey" aria-hidden="true">E</span>
+        </button>
+      </div>
+
+      <div class="shop-panel">
+        <div class="shop-head">
+          <span>ЗАЩИТНИКИ</span>
+          <span class="shop-hint" id="shopHint">выбери защитника</span>
+          <span class="def-total" id="defTotal" aria-live="polite">0 / 15</span>
+        </div>
+        <div class="cards">
+          <button class="def-card def-card--archer" data-def="archer" type="button" aria-label="Поставить стрелка за 35 эссенции. Лимит типа отсутствует.">
+            <span class="card-hotkey" aria-hidden="true">1</span>
+            <span class="def-icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32">
+                <path d="M7 25 25 7M19 7h6v6" class="main-line"/>
+                <path d="M6 18a10 10 0 0 0 8 8" class="soft-line"/>
+                <circle cx="16" cy="16" r="9" class="thin"/>
+              </svg>
+            </span>
+            <span class="def-name">Стрелок</span>
+            <span class="def-cost"><i>✦</i><b data-cost="archer">35</b></span>
+            <span class="def-limit" id="defLimitArcher" aria-hidden="true">0 / ∞</span>
+          </button>
+
+          <button class="def-card def-card--mortar" data-def="mortar" type="button" aria-label="Поставить мортиру за 55 эссенции. Лимит 3.">
+            <span class="card-hotkey" aria-hidden="true">2</span>
+            <span class="def-icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32">
+                <path d="M9 25h14M11 25l3-9h7l1 9" class="thin"/>
+                <path d="m14 16 7-9 4 3-6 8" class="main-line"/>
+                <circle cx="16" cy="20" r="2.2" class="solid"/>
+              </svg>
+            </span>
+            <span class="def-name">Мортира</span>
+            <span class="def-cost"><i>✦</i><b data-cost="mortar">55</b></span>
+            <span class="def-limit" id="defLimitMortar" aria-hidden="true">0 / 3</span>
+          </button>
+
+          <button class="def-card def-card--frost" data-def="frost" type="button" aria-label="Поставить криос за 45 эссенции. Лимит 5.">
+            <span class="card-hotkey" aria-hidden="true">3</span>
+            <span class="def-icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32">
+                <path d="M16 4v24M6 10l20 12M6 22 26 10" class="main-line"/>
+                <path d="m12 7 4 3 4-3M12 25l4-3 4 3" class="soft-line"/>
+              </svg>
+            </span>
+            <span class="def-name">Криос</span>
+            <span class="def-cost"><i>✦</i><b data-cost="frost">45</b></span>
+            <span class="def-limit" id="defLimitFrost" aria-hidden="true">0 / 5</span>
+          </button>
+
+          <button class="def-card def-card--banker" data-def="banker" type="button" hidden aria-label="Поставить банкира за 60 эссенции. Лимит 1.">
+            <span class="card-hotkey" aria-hidden="true">4</span>
+            <span class="def-icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32">
+                <path d="M7 12h18M9 12v10M13 12v10M19 12v10M23 12v10M5 25h22M16 4l9 6H7z" class="main-line"/>
+                <circle cx="16" cy="18" r="2.1" class="solid"/>
+              </svg>
+            </span>
+            <span class="def-name">Банкир</span>
+            <span class="def-cost"><i>✦</i><b data-cost="banker">60</b></span>
+            <span class="def-limit" id="defLimitBanker" aria-hidden="true">0 / 1</span>
+          </button>
+
+          <button class="def-card def-card--booster" data-def="booster" type="button" hidden aria-label="Поставить бустера за 65 эссенции. Лимит 2.">
+            <span class="card-hotkey" aria-hidden="true">5</span>
+            <span class="def-icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32">
+                <path d="M16 27V10M10 16l6-6 6 6M8 21a12 12 0 0 1 16 0M5 25a17 17 0 0 1 22 0" class="main-line"/>
+                <circle cx="16" cy="27" r="2.2" class="solid"/>
+              </svg>
+            </span>
+            <span class="def-name">Бустер</span>
+            <span class="def-cost"><i>✦</i><b data-cost="booster">65</b></span>
+            <span class="def-limit" id="defLimitBooster" aria-hidden="true">0 / 2</span>
+          </button>
+
+          <button class="def-card def-card--god" data-def="god" type="button" hidden aria-label="Поставить Бога за 120 эссенции. Лимит 1. Доступен только аккаунту основателя.">
+            <span class="card-hotkey" aria-hidden="true">6</span>
+            <span class="def-icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32">
+                <circle cx="16" cy="16" r="4.2" class="solid"/>
+                <path d="M16 4v5M16 23v5M4 16h5M23 16h5M7.5 7.5l3.5 3.5M21 21l3.5 3.5M24.5 7.5 21 11M11 21l-3.5 3.5" class="main-line"/>
+                <path d="M10.5 11.5 16 8l5.5 3.5" class="soft-line"/>
+              </svg>
+            </span>
+            <span class="def-name">Бог</span>
+            <span class="def-cost"><i>✦</i><b data-cost="god">120</b></span>
+            <span class="def-limit" id="defLimitGod" aria-hidden="true">0 / 1</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="overlay menu is-open" id="menu" aria-label="Главное меню">
+      <div class="menu-glow" aria-hidden="true"></div>
+      <div class="menu-inner">
+        <div class="menu-kicker"><span></span> ПОСЛЕДНИЙ РУБЕЖ <span></span></div>
+
+        <div class="emblem-wrap" aria-hidden="true">
+          <svg class="emblem" viewBox="0 0 180 210">
+            <defs>
+              <linearGradient id="towerMetal" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#213a48"/>
+                <stop offset="0.48" stop-color="#0c1822"/>
+                <stop offset="1" stop-color="#2d5360"/>
+              </linearGradient>
+              <linearGradient id="towerCrystal" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ecfeff"/>
+                <stop offset="0.42" stop-color="#7af6ff"/>
+                <stop offset="1" stop-color="#1a98b8"/>
+              </linearGradient>
+              <radialGradient id="towerAura">
+                <stop offset="0" stop-color="#72f4ff" stop-opacity=".45"/>
+                <stop offset="1" stop-color="#72f4ff" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <circle cx="90" cy="112" r="82" fill="url(#towerAura)" opacity=".5"/>
+            <circle cx="90" cy="112" r="68" class="emblem-orbit"/>
+            <circle cx="90" cy="112" r="78" class="emblem-orbit emblem-orbit--dash"/>
+            <path d="M90 22v18M55 39l9 15M125 39l-9 15" class="emblem-spark"/>
+            <ellipse cx="90" cy="180" rx="49" ry="9" fill="#010407" opacity=".65"/>
+            <path d="M57 171 67 99l11-11 8-53 6-13 6 13 8 53 11 11 10 72Z" fill="url(#towerMetal)" stroke="#4c8494" stroke-width="1.2"/>
+            <path d="m67 99 23-9 23 9M73 126h34M71 151h38" fill="none" stroke="#65e9f7" stroke-opacity=".22"/>
+            <path d="M78 171h24l-3-41H81Z" fill="#050b10"/>
+            <path d="M90 36 104 75 90 92 76 75Z" fill="url(#towerCrystal)" stroke="#d9feff" stroke-width="1.2"/>
+            <path d="M90 36v56M76 75l14-12 14 12" fill="none" stroke="#fff" stroke-opacity=".4"/>
+            <path d="M48 168h84l8 11H40Z" fill="#07131a" stroke="#3b7180"/>
+            <circle cx="57" cy="158" r="3.2" fill="#ffcf76"/>
+            <circle cx="123" cy="158" r="3.2" fill="#ffcf76"/>
+            <path d="M90 8v13M84 14h12" class="emblem-spark"/>
+          </svg>
+        </div>
+
+        <h1 class="menu-title">LAST<span>TOWER</span></h1>
+        <p class="menu-sub">Две башни. Четыре режима.<br>Выбери свой последний рубеж.</p>
+
+        <div class="menu-meta">
+          <div class="best-badge" id="bestBadge" hidden>
+            <span>ЛИЧНЫЙ РЕКОРД</span>
+            <strong id="bestValue">волна 1</strong>
+          </div>
+          <div class="wallet-badge" id="walletBadge" title="Монеты за победы">
+            <span class="wallet-coin" aria-hidden="true">✦</span>
+            <span>МОНЕТЫ</span>
+            <strong id="menuWalletValue">0</strong>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="startBtn" type="button" aria-haspopup="dialog" aria-controls="modeSelect" aria-expanded="false">
+          <span>ВЫБРАТЬ РЕЖИМ</span>
+          <span class="btn-arrow" aria-hidden="true">→</span>
+        </button>
+
+        <button class="menu-inventory" id="menuInventoryBtn" type="button" aria-haspopup="dialog" aria-controls="inventory" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 8.5h14l1.2 11.5H3.8Z"/><path d="M9 8.5V6a3 3 0 0 1 6 0v2.5"/><path d="M9 13h6M9 16.5h4"/>
+          </svg>
+          <span>ИНВЕНТАРЬ</span>
+          <small>защитники и башни</small>
+        </button>
+
+        <button class="menu-inventory menu-progress" id="menuProgressBtn" type="button" aria-haspopup="dialog" aria-controls="progress" aria-expanded="false" aria-label="Штаб: ежедневные квесты, достижения и бестиарий">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 4h8v3H8zM6 7h12v14H6z"/><path d="M9 11h6M9 14.5h6M9 18h4"/><path d="m15.5 2 .8 1.7 1.9.3-1.4 1.3.3 1.9-1.6-.9-1.6.9.3-1.9L12.8 4l1.9-.3z"/>
+          </svg>
+          <span>ШТАБ</span>
+          <small id="progressBadge">0 / 3</small>
+        </button>
+
+        <button class="menu-inventory menu-guide" id="instructionsBtn" type="button" aria-haspopup="dialog" aria-controls="instructions" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 5.5v16M8 7h8M8 10.5h6"/>
+          </svg>
+          <span>ИНСТРУКЦИЯ</span>
+          <small>как играть</small>
+        </button>
+
+        <button class="menu-inventory menu-account" id="accountBtn" type="button" aria-haspopup="dialog" aria-controls="account" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/><path d="M18.5 3.5v4M16.5 5.5h4"/>
+          </svg>
+          <span>АККАУНТ</span>
+          <small id="accountChipStatus">гость</small>
+        </button>
+
+        <p class="menu-foot">Установи на телефон · играет офлайн</p>
+      </div>
+    </section>
+
+    <section class="overlay mode-select" id="modeSelect" aria-hidden="true" aria-label="Выбор режима">
+      <div class="mode-panel" role="dialog" aria-modal="true" aria-labelledby="modeTitle">
+        <button class="mode-close" id="modeClose" type="button" aria-label="Закрыть выбор режима">×</button>
+
+        <header class="mode-head">
+          <div class="mode-kicker">СЛОЖНОСТЬ</div>
+          <h2 class="mode-title" id="modeTitle">ИГРОВОЙ<br><span>РЕЖИМ</span></h2>
+          <p class="mode-sub">Три сложности и бесконечная осада. За победу — монеты и достижения.</p>
+          <div class="mode-wallet">
+            <span class="wallet-coin" aria-hidden="true">✦</span>
+            <span>БАЛАНС</span>
+            <strong id="modeWalletValue">0</strong>
+          </div>
+        </header>
+
+        <div class="mode-body">
+          <button class="mode-card mode-card--easy" type="button" data-mode="easy" aria-label="Легкий режим: 8 волн, награда 120 монет">
+            <span class="mode-card-top">
+              <span class="mode-name">ЛЕГКИЙ</span>
+              <span class="mode-tag">РАЗМИНКА</span>
+            </span>
+            <span class="mode-desc">Враги слабее, но расслабиться не дадут. Ядро прощает ошибки.</span>
+            <span class="mode-meta">
+              <span><b>8</b> волн</span>
+              <span><b>100</b> эссенции</span>
+              <span class="mode-reward"><b>+120</b> монет</span>
+            </span>
+            <span class="mode-play">ИГРАТЬ <i aria-hidden="true">→</i></span>
+          </button>
+
+          <button class="mode-card mode-card--medium" type="button" data-mode="medium" aria-label="Средний режим: 12 волн, награда 260 монет">
+            <span class="mode-card-top">
+              <span class="mode-name">СРЕДНИЙ</span>
+              <span class="mode-tag">ОСНОВНОЙ</span>
+            </span>
+            <span class="mode-desc">Плотные волны и злые враги. Придётся считать эссенцию и беречь ядро.</span>
+            <span class="mode-meta">
+              <span><b>12</b> волн</span>
+              <span><b>78</b> эссенции</span>
+              <span class="mode-reward"><b>+260</b> монет</span>
+            </span>
+            <span class="mode-play">ИГРАТЬ <i aria-hidden="true">→</i></span>
+          </button>
+
+          <button class="mode-card mode-card--hard" type="button" data-mode="hard" aria-label="Сложный режим: 16 волн, награда 520 монет">
+            <span class="mode-card-top">
+              <span class="mode-name">СЛОЖНЫЙ</span>
+              <span class="mode-tag">ИСПЫТАНИЕ</span>
+            </span>
+            <span class="mode-desc">Мало эссенции, очень злые враги и вражеская башня в финале. Только для настоящих защитников.</span>
+            <span class="mode-meta">
+              <span><b>16</b> волн</span>
+              <span><b>60</b> эссенции</span>
+              <span class="mode-reward"><b>+520</b> монет</span>
+            </span>
+            <span class="mode-play">ИГРАТЬ <i aria-hidden="true">→</i></span>
+          </button>
+
+          <button class="mode-card mode-card--endless" type="button" data-mode="endless" aria-label="Бесконечный режим: волны не заканчиваются, каждые 5 волн бонус монетами">
+            <span class="mode-card-top">
+              <span class="mode-name">БЕСКОНЕЧНЫЙ</span>
+              <span class="mode-tag">ОСАДА</span>
+            </span>
+            <span class="mode-desc">Волны не заканчиваются. Каждые 5 волн — бонус монетами. Сколько продержишься?</span>
+            <span class="mode-meta">
+              <span><b>∞</b> волн</span>
+              <span><b>90</b> эссенции</span>
+              <span class="mode-reward" id="endlessBest">рекорд: —</span>
+            </span>
+            <span class="mode-play">ИГРАТЬ <i aria-hidden="true">→</i></span>
+          </button>
+        </div>
+
+        <footer class="mode-foot">
+          <span>Победа — зачистить все волны режима. В осаде — личный рекорд.</span>
+          <button class="mode-back" id="modeBackBtn" type="button">НАЗАД</button>
+        </footer>
+      </div>
+    </section>
+
+    <section class="overlay progress" id="progress" aria-hidden="true" aria-label="Штаб: квесты, достижения, бестиарий и рейтинг">
+      <div class="progress-panel" role="dialog" aria-modal="true" aria-labelledby="progressTitle">
+        <button class="progress-close" id="progressClose" type="button" aria-label="Закрыть штаб">×</button>
+
+        <div class="progress-scroll">
+          <header class="progress-head">
+            <div class="progress-kicker">ПРОГРЕСС</div>
+            <h2 class="progress-title" id="progressTitle">ШТАБ</h2>
+            <p class="progress-sub">Ежедневные квесты, достижения, бестиарий и рейтинг. Награды монетами начисляются сразу.</p>
+            <div class="progress-wallet">
+              <span class="wallet-coin" aria-hidden="true">✦</span>
+              <span>БАЛАНС</span>
+              <strong id="progressWalletValue">0</strong>
+            </div>
+          </header>
+
+          <div class="progress-tabs" role="tablist" aria-label="Разделы штаба">
+            <button class="progress-tab is-active" type="button" role="tab" data-progress-tab="daily" aria-selected="true" aria-controls="progressViewDaily">
+              КВЕСТЫ <span id="dailyTabCount">0 / 3</span>
+            </button>
+            <button class="progress-tab" type="button" role="tab" data-progress-tab="achievements" aria-selected="false" aria-controls="progressViewAchievements" tabindex="-1">
+              ДОСТИЖЕНИЯ <span id="achTabCount">0 / 5</span>
+            </button>
+            <button class="progress-tab" type="button" role="tab" data-progress-tab="enemies" aria-selected="false" aria-controls="progressViewEnemies" tabindex="-1">
+              ВРАГИ <span id="enemyTabCount">0 / 13</span>
+            </button>
+            <button class="progress-tab" type="button" role="tab" data-progress-tab="leaderboard" aria-selected="false" aria-controls="progressViewLeaderboard" tabindex="-1">
+              РЕЙТИНГ <span id="leaderTabCount">ТОП</span>
+            </button>
+          </div>
+
+          <div class="progress-view" id="progressViewDaily" role="tabpanel">
+            <div class="daily-head">
+              <span>ДО СБРОСА</span>
+              <strong id="dailyReset">—</strong>
+              <em id="dailyAllDone" hidden>ВСЁ ВЫПОЛНЕНО</em>
+            </div>
+            <div class="daily-list" id="dailyQuestList"></div>
+            <p class="progress-note">Три новых контракта каждый день. Прогресс сохраняется между забегами; награда приходит сразу.</p>
+          </div>
+
+          <div class="progress-view" id="progressViewAchievements" role="tabpanel" hidden>
+            <div class="ach-head">
+              <span>ОТКРЫТО</span>
+              <strong id="achCount">0 / 5</strong>
+            </div>
+            <div class="ach-list" id="achList"></div>
+            <p class="progress-note">Достижения открываются навсегда. Награды можно получить только один раз.</p>
+          </div>
+
+          <div class="progress-view" id="progressViewEnemies" role="tabpanel" hidden>
+            <div class="enemy-head">
+              <span>ВСЕГО УБИЙСТВ</span>
+              <strong id="enemyKillTotal">0</strong>
+            </div>
+            <div class="enemy-list" id="enemyList"></div>
+            <p class="progress-note">Каждый враг открывается за убийства именно этого типа: ползун — за ползунов, Король — за Королей. Редкие боссы требуют меньше убийств, потому что появляются не в каждой волне.</p>
+          </div>
+
+          <div class="progress-view" id="progressViewLeaderboard" role="tabpanel" hidden>
+            <div class="leader-head">
+              <span>ЛУЧШИЕ ИГРОКИ</span>
+              <strong id="leaderboardStatus">—</strong>
+            </div>
+            <div class="leader-modes" id="leaderboardModes" role="tablist" aria-label="Режим рейтинга">
+              <button class="leader-mode" type="button" data-leader-mode="easy" aria-selected="false">ЛЁГКИЙ</button>
+              <button class="leader-mode is-active" type="button" data-leader-mode="medium" aria-selected="true">СРЕДНИЙ</button>
+              <button class="leader-mode" type="button" data-leader-mode="hard" aria-selected="false">СЛОЖНЫЙ</button>
+              <button class="leader-mode" type="button" data-leader-mode="endless" aria-selected="false">БЕСКОНЕЧНЫЙ</button>
+            </div>
+            <div class="leader-list" id="leaderboardList"></div>
+            <p class="progress-note" id="leaderboardNote">Лучшая волна и счёт в каждом режиме. В общий рейтинг не попадают забеги аккаунта основателя.</p>
+          </div>
+        </div>
+
+        <footer class="progress-foot">
+          <span>Сброс квестов — в 00:00</span>
+          <button class="progress-done" id="progressDoneBtn" type="button">ПОНЯТНО</button>
+        </footer>
+      </div>
+    </section>
+
+    <section class="overlay guide" id="instructions" aria-hidden="true" aria-label="Инструкция по игре">
+      <div class="guide-panel" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+        <button class="guide-close" id="instructionsClose" type="button" aria-label="Закрыть инструкцию">×</button>
+
+        <header class="guide-head">
+          <div class="guide-kicker">ПОЛЕВОЙ УСТАВ</div>
+          <h2 class="guide-title" id="guideTitle">КАК<br><span>ИГРАТЬ</span></h2>
+          <p class="guide-sub">Коротко о том, что делать на арене и как дожить до последней волны.</p>
+        </header>
+
+        <div class="guide-list">
+          <article class="guide-item">
+            <span class="guide-num">01</span>
+            <div>
+              <h3>Защити ядро</h3>
+              <p>Враги идут к башне. Если ядро падёт — забег закончится. Отбей все волны режима, чтобы победить.</p>
+            </div>
+          </article>
+          <article class="guide-item">
+            <span class="guide-num">02</span>
+            <div>
+              <h3>Строй защитников</h3>
+              <p>Выбери карточку внизу и поставь защитника в любую свободную точку арены. Эссенция тратится на постройку и улучшения.</p>
+            </div>
+          </article>
+          <article class="guide-item">
+            <span class="guide-num">03</span>
+            <div>
+              <h3>Бей и применяй способности</h3>
+              <p>Тап по врагу — тяжёлый луч башни. Способности — «Импульс», «Оковы» и «Починка»; на клавиатуре это Q, W и E. Защитники выбираются цифрами 1–6. У стартовой башни сначала только «Починка», «Импульс» открывается на максимуме.</p>
+            </div>
+          </article>
+          <article class="guide-item">
+            <span class="guide-num">04</span>
+            <div>
+              <h3>Расти и сохраняй прогресс</h3>
+              <p>Монеты тратятся на две башни, их уровни и состав защитников. «АККАУНТ» в меню сохраняет отдельный прогресс для каждого игрока. В «ШТАБЕ» — ежедневные квесты, достижения и бестиарий.</p>
+            </div>
+          </article>
+        </div>
+
+        <footer class="guide-foot">
+          <span>Совет: не оставляй ядро без ремонта перед боссом.</span>
+          <button class="guide-done" id="instructionsDoneBtn" type="button">ПОНЯТНО</button>
+        </footer>
+      </div>
+    </section>
+
+    <section class="overlay account" id="account" aria-hidden="true" aria-label="Аккаунт и сохранение прогресса">
+      <div class="account-panel" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+        <button class="account-close" id="accountClose" type="button" aria-label="Закрыть аккаунт">×</button>
+
+        <header class="account-head">
+          <div class="account-kicker" id="accountKicker">СОХРАНЕНИЕ ПРОГРЕССА</div>
+          <h2 class="account-title" id="accountTitle">АККАУНТ</h2>
+          <p class="account-sub" id="accountSub">Войди или создай локальный аккаунт, чтобы прогресс, монеты и достижения сохранялись отдельно.</p>
+        </header>
+
+        <div class="account-guest" id="accountGuestView">
+          <div class="account-tabs" role="tablist" aria-label="Вход или регистрация">
+            <button class="account-tab is-active" id="accountLoginTab" type="button" role="tab" data-account-tab="login" aria-selected="true" aria-controls="accountLoginForm">ВХОД</button>
+            <button class="account-tab" id="accountRegisterTab" type="button" role="tab" data-account-tab="register" aria-selected="false" aria-controls="accountRegisterForm" tabindex="-1">РЕГИСТРАЦИЯ</button>
+          </div>
+
+          <form class="account-form" id="accountLoginForm" novalidate>
+            <label class="account-field">
+              <span>ЛОГИН</span>
+              <input id="accountLoginUsername" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" placeholder="например, dmitry">
+            </label>
+            <label class="account-field">
+              <span>ПАРОЛЬ</span>
+              <input id="accountLoginPassword" type="password" autocomplete="current-password" maxlength="72" placeholder="твой пароль">
+            </label>
+            <p class="account-error" id="accountLoginError" role="alert" hidden></p>
+            <button class="account-submit" id="accountLoginBtn" type="submit">ВОЙТИ</button>
+          </form>
+
+          <form class="account-form" id="accountRegisterForm" hidden novalidate>
+            <label class="account-field">
+              <span>ЛОГИН</span>
+              <input id="accountRegisterUsername" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" placeholder="латиница, цифры, _">
+            </label>
+            <label class="account-field">
+              <span>ИМЯ В ИГРЕ <small>необязательно</small></span>
+              <input id="accountRegisterName" type="text" autocomplete="nickname" maxlength="24" placeholder="как тебя называть">
+            </label>
+            <label class="account-field">
+              <span>ПАРОЛЬ <small>минимум 8 символов</small></span>
+              <input id="accountRegisterPassword" type="password" autocomplete="new-password" maxlength="72" placeholder="придумай пароль">
+            </label>
+            <label class="account-field">
+              <span>ПОВТОРИ ПАРОЛЬ</span>
+              <input id="accountRegisterConfirm" type="password" autocomplete="new-password" maxlength="72" placeholder="ещё раз">
+            </label>
+            <label class="account-check" id="accountCarryRow">
+              <input id="accountCarryProgress" type="checkbox" checked>
+              <span>Перенести текущий гостевой прогресс</span>
+            </label>
+            <p class="account-error" id="accountRegisterError" role="alert" hidden></p>
+            <button class="account-submit" id="accountRegisterBtn" type="submit">СОЗДАТЬ АККАУНТ</button>
+          </form>
+
+          <button class="account-guest-btn" id="accountGuestBtn" type="button">ПРОДОЛЖИТЬ КАК ГОСТЬ</button>
+          <p class="account-note" id="accountNote">Облачный аккаунт Supabase: прогресс, монеты и достижения доступны на других устройствах. Пароль хранится только в виде защищённого хеша на сервере. Восстановления пароля пока нет — запиши его.</p>
+        </div>
+
+        <div class="account-profile" id="accountProfileView" hidden>
+          <div class="account-avatar" id="accountAvatar" aria-hidden="true">Б</div>
+          <strong class="account-name" id="accountProfileName">Игрок</strong>
+          <span class="account-login" id="accountProfileLogin">@player</span>
+          <span class="account-exclusive" id="accountExclusiveBadge" hidden>ОСНОВАТЕЛЬ · БОГ ДОСТУПЕН</span>
+
+          <div class="account-stats">
+            <div><span>МОНЕТЫ</span><strong id="accountStatMoney">0</strong></div>
+            <div><span>ЛУЧШАЯ ВОЛНА</span><strong id="accountStatBest">0</strong></div>
+            <div><span>БАШНЯ</span><strong id="accountStatTower">1 / 5</strong></div>
+            <div><span>ДОСТИЖЕНИЯ</span><strong id="accountStatAch">0 / 5</strong></div>
+          </div>
+
+          <p class="account-profile-note" id="accountProfileNote">Прогресс сохраняется автоматически в этом браузере.</p>
+          <div class="account-actions">
+            <button class="account-submit" id="accountLogoutBtn" type="button">ВЫЙТИ ИЗ АККАУНТА</button>
+            <button class="account-delete" id="accountDeleteBtn" type="button">УДАЛИТЬ АККАУНТ</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="overlay result" id="gameover" aria-label="Башня пала">
+      <div class="result-panel">
+        <div class="result-kicker">ОБОРОНА ЗАВЕРШЕНА</div>
+        <h2 class="result-title">БАШНЯ<br><span>ПАЛА</span></h2>
+        <div class="result-wave">ДОСТИГНУТА <strong>ВОЛНА <span id="resultWave">1</span></strong></div>
+        <div class="result-mode" id="resultMode">СРЕДНИЙ · ЦЕЛЬ 12 ВОЛН</div>
+
+        <div class="result-stats">
+          <div><span>ВРАГОВ</span><strong id="resultKills">0</strong></div>
+          <div><span>ОЧКИ</span><strong id="resultScore">0</strong></div>
+          <div><span>ЭССЕНЦИЯ</span><strong id="resultEssence">0</strong></div>
+        </div>
+
+        <div class="record-badge" id="newRecord" hidden>✦ НОВЫЙ РЕКОРД ✦</div>
+
+        <button class="btn btn-primary" id="restartBtn" type="button">
+          <span>ЕЩЁ РАЗ</span><span class="btn-arrow" aria-hidden="true">↻</span>
+        </button>
+        <button class="btn btn-ghost" id="toMenuBtn" type="button">В ГЛАВНОЕ МЕНЮ</button>
+      </div>
+    </section>
+
+    <section class="overlay victory" id="victory" aria-hidden="true" aria-label="Победа">
+      <div class="result-panel victory-panel" role="dialog" aria-modal="true" aria-labelledby="victoryTitle">
+        <div class="result-kicker victory-kicker">РУБЕЖ УДЕРЖАН</div>
+        <h2 class="result-title victory-title" id="victoryTitle">ПОБЕДА</h2>
+        <div class="result-mode" id="victoryMode">СРЕДНИЙ · 12 ВОЛН</div>
+
+        <div class="result-stats">
+          <div><span>ВОЛНЫ</span><strong id="victoryWave">12</strong></div>
+          <div><span>ВРАГОВ</span><strong id="victoryKills">0</strong></div>
+          <div><span>ОЧКИ</span><strong id="victoryScore">0</strong></div>
+        </div>
+
+        <div class="victory-reward">
+          <span>ЗАРАБОТАНО ЗА ЗАБЕГ</span>
+          <strong>+<span id="victoryReward">260</span> <small>монет</small></strong>
+        </div>
+        <div class="victory-wallet">БАЛАНС: <strong id="victoryWallet">0</strong> монет</div>
+        <div class="record-badge" id="victoryRecord" hidden>✦ НОВЫЙ РЕКОРД ✦</div>
+
+        <button class="btn btn-primary" id="victoryRestartBtn" type="button">
+          <span>ИГРАТЬ СНОВА</span><span class="btn-arrow" aria-hidden="true">↻</span>
+        </button>
+        <button class="btn btn-ghost" id="victoryMenuBtn" type="button">В ГЛАВНОЕ МЕНЮ</button>
+      </div>
+    </section>
+
+    <section class="overlay pause" id="pause" aria-label="Пауза">
+      <div class="pause-panel">
+        <div class="pause-kicker">ПЕРЕДЫШКА</div>
+        <h2>ПАУЗА</h2>
+        <p class="pause-tip">Ставь защитников в любом месте арены, улучшай их тапом по постройке, а башню — за монеты в инвентаре. Способности тоже не забывай.</p>
+        <div class="pause-stats">
+          <div><span>ВОЛНА</span><strong id="pauseWave">1</strong></div>
+          <div><span>ЯДРО</span><strong id="pauseHp">100</strong></div>
+          <div><span>ЭССЕНЦИЯ</span><strong id="pauseEssence">0</strong></div>
+        </div>
+        <button class="btn btn-primary" id="resumeBtn" type="button"><span>ПРОДОЛЖИТЬ</span><span class="btn-arrow" aria-hidden="true">→</span></button>
+        <div class="pause-row">
+          <button class="btn btn-ghost" id="pauseRestartBtn" type="button">ЗАНОВО</button>
+          <button class="btn btn-ghost" id="pauseSoundBtn" type="button">ЗВУК: ВКЛ</button>
+          <button class="btn btn-ghost" id="pauseMenuBtn" type="button">В МЕНЮ</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="overlay inventory" id="inventory" aria-hidden="true" aria-label="Инвентарь">
+      <div class="inventory-panel" role="dialog" aria-modal="true" aria-labelledby="inventoryTitle">
+        <button class="inventory-close" id="inventoryClose" type="button" aria-label="Закрыть инвентарь">×</button>
+
+        <div class="inventory-scroll">
+          <header class="inventory-head">
+            <div class="inventory-kicker">АРСЕНАЛ</div>
+            <h2 class="inventory-title" id="inventoryTitle">ИНВЕНТАРЬ</h2>
+            <p class="inventory-sub">Защитники и две башни, которые отправляются с тобой на последний рубеж. Выбирай состав под активную башню, открывай защитников и улучшай каждую башню отдельно.</p>
+            <div class="inventory-wallet-line">
+              <span class="wallet-coin" aria-hidden="true">✦</span>
+              <span>БАЛАНС</span>
+              <strong id="invWalletValue">0</strong>
+              <small>монет</small>
+            </div>
+          </header>
+
+          <div class="inventory-tabs" role="tablist" aria-label="Разделы инвентаря">
+            <button class="inv-tab is-active" id="invTabDefenders" type="button" data-inv-tab="defenders" role="tab" aria-selected="true" aria-controls="invViewDefenders" tabindex="0">
+              ЗАЩИТНИКИ <span id="invDefCount">3</span>
+            </button>
+            <button class="inv-tab" id="invTabTower" type="button" data-inv-tab="tower" role="tab" aria-selected="false" aria-controls="invViewTower" tabindex="-1">
+              БАШНИ
+            </button>
+          </div>
+
+          <div class="inventory-view" id="invViewDefenders" role="tabpanel" aria-labelledby="invTabDefenders">
+            <p class="inv-loadout-line" id="invLoadoutLine" aria-live="polite">СОСТАВ «СТАРТОВОЙ»: 3 / 3 ТИПА</p>
+            <div class="inv-grid">
+              <article class="inv-card inv-card--archer" data-def="archer">
+                <div class="inv-card-top">
+                  <span class="inv-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32">
+                      <path d="M7 25 25 7M19 7h6v6" class="main-line"/>
+                      <path d="M6 18a10 10 0 0 0 8 8" class="soft-line"/>
+                      <circle cx="16" cy="16" r="9" class="thin"/>
+                    </svg>
+                  </span>
+                  <span class="inv-status">ДОСТУПЕН</span>
+                </div>
+                <strong class="inv-name">Стрелок</strong>
+                <span class="inv-role">ДАЛЬНИЙ БОЙ</span>
+                <div class="inv-stats">
+                  <span class="inv-stat"><small>Урон</small><b id="invArcherDmg">13</b></span>
+                  <span class="inv-stat"><small>Дальность</small><b id="invArcherRange">168</b></span>
+                </div>
+              </article>
+
+              <article class="inv-card inv-card--mortar" data-def="mortar">
+                <div class="inv-card-top">
+                  <span class="inv-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32">
+                      <path d="M9 25h14M11 25l3-9h7l1 9" class="thin"/>
+                      <path d="m14 16 7-9 4 3-6 8" class="main-line"/>
+                      <circle cx="16" cy="20" r="2.2" class="solid"/>
+                    </svg>
+                  </span>
+                  <span class="inv-status">ДОСТУПЕН</span>
+                </div>
+                <strong class="inv-name">Мортира</strong>
+                <span class="inv-role">ОСАДНЫЙ БОЙ</span>
+                <div class="inv-stats">
+                  <span class="inv-stat"><small>Урон</small><b id="invMortarDmg">34</b></span>
+                  <span class="inv-stat"><small>Радиус</small><b id="invMortarSplash">56</b></span>
+                </div>
+              </article>
+
+              <article class="inv-card inv-card--frost" data-def="frost">
+                <div class="inv-card-top">
+                  <span class="inv-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32">
+                      <path d="M16 4v24M6 10l20 12M6 22 26 10" class="main-line"/>
+                      <path d="m12 7 4 3 4-3M12 25l4-3 4 3" class="soft-line"/>
+                    </svg>
+                  </span>
+                  <span class="inv-status">ДОСТУПЕН</span>
+                </div>
+                <strong class="inv-name">Криос</strong>
+                <span class="inv-role">КОНТРОЛЬ</span>
+                <div class="inv-stats">
+                  <span class="inv-stat"><small>Урон</small><b id="invFrostDmg">6</b></span>
+                  <span class="inv-stat"><small>Дальность</small><b id="invFrostRange">140</b></span>
+                </div>
+              </article>
+
+              <article class="inv-card inv-card--banker inv-card--buy is-buyable" id="invCardBanker" data-def="banker">
+                <div class="inv-card-top">
+                  <span class="inv-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32">
+                      <path d="M7 12h18M9 12v10M13 12v10M19 12v10M23 12v10M5 25h22M16 4l9 6H7z" class="main-line"/>
+                      <circle cx="16" cy="18" r="2.1" class="solid"/>
+                    </svg>
+                  </span>
+                  <span class="inv-status" id="invBankerStatus">НЕ КУПЛЕН</span>
+                </div>
+                <strong class="inv-name">Банкир</strong>
+                <span class="inv-role">ДОХОД · ЛИМИТ <b id="invBankerLimit">1</b></span>
+                <p class="inv-desc">Приносит монеты за каждую отбитую волну. Не атакует.</p>
+                <div class="inv-stats inv-stats--support">
+                  <span class="inv-stat"><small>Доход</small><b id="invBankerIncome">+3</b></span>
+                  <span class="inv-stat"><small>Прочность</small><b>100</b></span>
+                </div>
+                <div class="inv-buy-row">
+                  <button class="inv-buy" id="invBuyBanker" data-buy-def="banker" type="button">
+                    <span class="inv-buy-label">КУПИТЬ</span>
+                    <b><i aria-hidden="true">✦</i><span class="inv-buy-price">180</span></b>
+                  </button>
+                </div>
+              </article>
+
+              <article class="inv-card inv-card--booster inv-card--buy is-buyable" id="invCardBooster" data-def="booster">
+                <div class="inv-card-top">
+                  <span class="inv-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32">
+                      <path d="M16 27V10M10 16l6-6 6 6M8 21a12 12 0 0 1 16 0M5 25a17 17 0 0 1 22 0" class="main-line"/>
+                      <circle cx="16" cy="27" r="2.2" class="solid"/>
+                    </svg>
+                  </span>
+                  <span class="inv-status" id="invBoosterStatus">НЕ КУПЛЕН</span>
+                </div>
+                <strong class="inv-name">Бустер</strong>
+                <span class="inv-role">ПОДДЕРЖКА · ЛИМИТ <b id="invBoosterLimit">2</b></span>
+                <p class="inv-desc">Усиливает урон, дальность и скорость атаки защитников рядом. Не атакует.</p>
+                <div class="inv-stats inv-stats--support">
+                  <span class="inv-stat"><small>Урон ауры</small><b id="invBoosterDamage">+18%</b></span>
+                  <span class="inv-stat"><small>Дальн. ауры</small><b id="invBoosterRange">+8%</b></span>
+                </div>
+                <div class="inv-buy-row">
+                  <button class="inv-buy" id="invBuyBooster" data-buy-def="booster" type="button">
+                    <span class="inv-buy-label">КУПИТЬ</span>
+                    <b><i aria-hidden="true">✦</i><span class="inv-buy-price">220</span></b>
+                  </button>
+                </div>
+              </article>
+
+              <article class="inv-card inv-card--god" id="invCardGod" data-def="god" hidden>
+                <div class="inv-card-top">
+                  <span class="inv-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32">
+                      <circle cx="16" cy="16" r="4.2" class="solid"/>
+                      <path d="M16 4v5M16 23v5M4 16h5M23 16h5M7.5 7.5l3.5 3.5M21 21l3.5 3.5M24.5 7.5 21 11M11 21l-3.5 3.5" class="main-line"/>
+                      <path d="M10.5 11.5 16 8l5.5 3.5" class="soft-line"/>
+                    </svg>
+                  </span>
+                  <span class="inv-status" id="invGodStatus">ОСНОВАТЕЛЬ</span>
+                </div>
+                <strong class="inv-name">Бог</strong>
+                <span class="inv-role">ЭКСКЛЮЗИВ · ЛИМИТ <b id="invGodLimit">1</b></span>
+                <p class="inv-desc">Очень быстро бьёт тяжёлым светом по площади и усиливает всех защитников в ауре. Доступен только аккаунту основателя.</p>
+                <div class="inv-stats">
+                  <span class="inv-stat"><small>Урон</small><b id="invGodDamage">36</b></span>
+                  <span class="inv-stat"><small>Интервал</small><b id="invGodInterval">0,24 с</b></span>
+                  <span class="inv-stat"><small>Аура урона</small><b id="invGodAura">+22%</b></span>
+                </div>
+              </article>
+            </div>
+
+            <p class="inventory-buy-hint" id="invDefenderHint" aria-live="polite">Выбери до 3 типов для стартовой башни. Банкир и бустер открываются за монеты навсегда.</p>
+            <p class="inventory-note"><span aria-hidden="true">✦</span> Ставь защитников в любом месте арены. В составе стартовой башни — 3 типа, последней — 5. Бог у основателя доступен вне состава. Всего на арене до 15 защитников.</p>
+          </div>
+
+          <div class="inventory-view" id="invViewTower" role="tabpanel" aria-labelledby="invTabTower" hidden>
+            <div class="inv-tower-selector" id="invTowerSelector" role="group" aria-label="Выбор башни">
+              <button class="inv-tower-choice is-active" type="button" data-tower="start">
+                <span>СТАРТОВАЯ</span>
+                <small>3 типа</small>
+              </button>
+              <button class="inv-tower-choice" type="button" data-tower="final">
+                <span>ПОСЛЕДНЯЯ</span>
+                <small>5 типов</small>
+              </button>
+            </div>
+
+            <article class="inv-tower-card" id="invTowerCard">
+              <span class="inv-tower-emblem" aria-hidden="true">
+                <svg viewBox="0 0 64 64">
+                  <path d="M32 5 41 18v10l5 5v24H18V33l5-5V18Z" class="main-line"/>
+                  <path d="M26 57V44h12v13M23 33h18M28 18h8" class="soft-line"/>
+                  <circle cx="32" cy="31" r="3.2" class="solid"/>
+                </svg>
+              </span>
+              <div class="inv-tower-info">
+                <div class="inv-card-top">
+                  <span class="inv-status" id="invTowerStatus">АКТИВНА</span>
+                  <span class="inv-tag" id="invTowerTag">БАЗОВАЯ</span>
+                </div>
+                <strong class="inv-name" id="invTowerName">Стартовая башня</strong>
+                <p class="inv-desc" id="invTowerDesc">Три типа защитников. «Починка» доступна сразу, «Импульс» — на максимальном уровне.</p>
+                <p class="inv-tower-abilities" id="invTowerAbilities">Способности: Починка. Импульс — на максимуме.</p>
+                <div class="inv-stats inv-stats--tower">
+                  <span class="inv-stat"><small>Ядро</small><b id="invTowerHp">245</b></span>
+                  <span class="inv-stat"><small>Мощь</small><b id="invTowerPower">140%</b></span>
+                  <span class="inv-stat"><small>Ремонт</small><b id="invTowerRepair">46</b></span>
+                  <span class="inv-stat"><small>Типы</small><b id="invTowerSlots">3</b></span>
+                  <span class="inv-stat"><small>Всего</small><b id="invTowerLimit">15</b></span>
+                </div>
+              </div>
+
+              <div class="tower-upgrade">
+                <div class="tower-upgrade-head">
+                  <span class="tower-upgrade-kicker">УЛУЧШЕНИЕ БАШНИ</span>
+                  <span class="tower-upgrade-level" id="invTowerLevel">УР. 1 / 5</span>
+                </div>
+                <div class="tower-pips" id="invTowerPips" aria-hidden="true">
+                  <i class="is-on"></i><i class="is-next"></i><i></i><i></i><i></i>
+                </div>
+                <p class="tower-upgrade-next" id="invTowerNext">«Укреплённая» · +25 ядра · +8% мощи</p>
+                <div class="tower-upgrade-row">
+                  <span class="tower-cost">
+                    <span class="wallet-coin" aria-hidden="true">✦</span>
+                    <b id="invTowerCost">120</b>
+                  </span>
+                  <button class="tower-buy" id="invTowerUpgradeBtn" type="button" aria-describedby="invTowerHint">УЛУЧШИТЬ</button>
+                </div>
+                <p class="tower-upgrade-hint" id="invTowerHint" aria-live="polite">Покупка применится сразу и сохранится между забегами.</p>
+              </div>
+
+              <div class="tower-unlock" id="invTowerUnlock" hidden>
+                <div>
+                  <strong>КУПИТЬ «ПОСЛЕДНЮЮ»</strong>
+                  <small>Откроет 5 типов защитников и все три способности.</small>
+                </div>
+                <button class="tower-buy" id="invTowerUnlockBtn" type="button">КУПИТЬ ЗА 500</button>
+              </div>
+            </article>
+
+            <p class="inventory-note" id="invTowerLimitNote"><span aria-hidden="true">✦</span> У каждой башни свой уровень и свой состав защитников. Улучшения покупаются за монеты отдельно.</p>
+          </div>
+
+          <div class="inventory-foot">
+            <span class="inventory-foot-note">Свободная постановка · улучшения применяются сразу</span>
+            <button class="inv-done" id="inventoryDoneBtn" type="button">ПОНЯТНО</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="rotate-notice" id="rotateNotice" aria-hidden="true">
+      <div class="rotate-icon">
+        <svg viewBox="0 0 48 48"><rect x="14" y="6" width="20" height="36" rx="4"/><path d="M38 16a10 10 0 0 1 0 16"/><path d="m35 13 3 3-3 3"/></svg>
+      </div>
+      <strong>ПОВЕРНИТЕ ТЕЛЕФОН</strong>
+      <span>Last Tower играется в портретном режиме</span>
+    </div>
+
+  </main>
+
+  <script src="./js/game.js"></script>
+</body>
+</html>
